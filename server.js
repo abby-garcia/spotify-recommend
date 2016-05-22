@@ -3,7 +3,6 @@ var express = require('express');
 var events = require('events');
 
 var getFromApi = function(endpoint, args) {
-    console.log('endpoint: '+endpoint);
     var emitter = new events.EventEmitter();
     unirest.get('https://api.spotify.com/v1/' + endpoint)
            .qs(args)
@@ -20,11 +19,37 @@ var getFromApi = function(endpoint, args) {
 
 var relatedArtist = function(artist,res) {
     var relatedArtistReq = getFromApi('artists/' + artist.id + '/related-artists',{});
-    
-    relatedArtistReq.on('end', function(item) {
-        artist.related = item.artists;
-        res.json(artist);
+    var totalArtists = 0;
+    var completedArtists = 0;
+
+
+
+
+
+    relatedArtistReq.on('end', function(items) {
+         artist.related =[];
+         totalArtists = items.artists.length;
+         items.artists.forEach(function(item){
+            var topTracks = getFromApi('artists/' + item.id + '/top-tracks',{
+                country:"US"
+            });
+            topTracks.on('end', function(tracks){
+                item.tracks = tracks.tracks; //parameter and json format
+                 artist.related.push(item);// we changed item object in line 30
+                 completedArtists++;
+                 checkComplete();
+            });
+           
+        });
+       
     });
+
+    var checkComplete = function(){
+        if(totalArtists == completedArtists){
+             res.json(artist); // can't have run until all calls have been made
+        }
+
+    }
 }
 
 
@@ -52,4 +77,20 @@ app.get('/search/:name', function(req, res) {
 
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 app.listen(8080);
+
